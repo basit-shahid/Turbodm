@@ -30,7 +30,9 @@ jobs:
           $target = 'node_modules/yt-dlp-exec/bin/yt-dlp.exe'
           New-Item -ItemType Directory -Force (Split-Path $target) | Out-Null
           Invoke-WebRequest "$base/yt-dlp.exe" -OutFile $target
-          $checksums = (Invoke-WebRequest "$base/SHA2-256SUMS").Content
+          $checksumsPath = Join-Path $env:RUNNER_TEMP 'yt-dlp-SHA2-256SUMS.txt'
+          Invoke-WebRequest "$base/SHA2-256SUMS" -OutFile $checksumsPath
+          $checksums = Get-Content $checksumsPath -Raw
           $line = ($checksums -split "`n" | Where-Object { $_ -match '\s+yt-dlp\.exe\s*$' })
           if (!$line) { throw 'Missing official yt-dlp checksum' }
           $expected = ($line.Trim() -split '\s+')[0]
