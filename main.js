@@ -67,10 +67,10 @@ function isDownloadableUrl(text) {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1000,
-    height: 680,
+    width: 1180,
+    height: 800,
     minWidth: 800,
-    minHeight: 500,
+    minHeight: 600,
     frame: false,
     transparent: false,
     backgroundColor: '#f8fafc',

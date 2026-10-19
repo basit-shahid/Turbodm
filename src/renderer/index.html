@@ -1,287 +1,893 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TurboDM - Download Manager</title>
-  <link rel="stylesheet" href="styles.css">
-  <script>
-    const savedTheme = localStorage.getItem('theme') || 'dark';
-    document.documentElement.setAttribute('data-theme', savedTheme);
-  </script>
-</head>
-<body>
-  <!-- Title Bar -->
-  <div class="titlebar" id="titlebar">
-    <div class="titlebar-left">
-      <div class="app-icon">
-        <img src="../../build/icon.png" width="20" height="20" style="border-radius: 4px; object-fit: contain;">
-      </div>
-      <span class="app-title">TurboDM</span>
-      <span class="app-version">v1.0</span>
-    </div>
-    <div class="titlebar-right">
-      <button class="titlebar-btn" id="btn-minimize" title="Minimize">
-        <svg width="12" height="12" viewBox="0 0 12 12"><rect y="5" width="12" height="2" fill="currentColor" rx="1"/></svg>
-      </button>
-      <button class="titlebar-btn btn-close" id="btn-close" title="Close">
-        <svg width="12" height="12" viewBox="0 0 12 12"><path d="M1 1L11 11M11 1L1 11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      </button>
-    </div>
-  </div>
-
-  <!-- Toolbar -->
-  <div class="toolbar">
-    <div class="toolbar-left">
-      <button class="btn btn-primary" id="btn-add" title="Add Download">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
-        <span>Add URL</span>
-      </button>
-      <button class="btn btn-ghost" id="btn-resume-all" title="Resume All">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 3L19 12L5 21V3Z" fill="currentColor"/></svg>
-      </button>
-      <button class="btn btn-ghost" id="btn-pause-all" title="Pause All">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="5" y="3" width="4" height="18" rx="1" fill="currentColor"/><rect x="15" y="3" width="4" height="18" rx="1" fill="currentColor"/></svg>
-      </button>
-      <div class="toolbar-divider"></div>
-      <button class="btn btn-ghost" id="btn-clear" title="Clear Completed">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 6H5H21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8 6V4C8 3.4 8.4 3 9 3H15C15.6 3 16 3.4 16 4V6M19 6V20C19 20.6 18.6 21 18 21H6C5.4 21 5 20.6 5 20V6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      </button>
-      <button class="btn btn-ghost" id="btn-retry-all" title="Retry All Failed" style="color:var(--warning)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M1 4V10H7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.51 15C4.16 17.06 5.49 18.83 7.29 19.97C9.09 21.11 11.22 21.56 13.31 21.23C15.4 20.9 17.29 19.82 18.62 18.17C19.95 16.52 20.63 14.42 20.53 12.29C20.43 10.15 19.56 8.12 18.08 6.58C16.6 5.05 14.61 4.1 12.48 3.93C10.35 3.76 8.23 4.37 6.52 5.64L1 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-      <div class="toolbar-divider"></div>
-      <div class="search-box">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" class="search-icon"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/><path d="M21 21L16.65 16.65" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        <input type="text" id="search-input" placeholder="Search downloads...">
-      </div>
-    </div>
-    <div class="toolbar-right">
-      <button class="btn btn-ghost" id="btn-theme" title="Toggle Theme">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path></svg>
-      </button>
-      <button class="btn btn-ghost" id="btn-settings" title="Settings">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z" stroke="currentColor" stroke-width="2"/><path d="M19.4 15C19.2 15.3 19.2 15.7 19.4 16L20.5 17.8C20.6 18 20.6 18.3 20.4 18.4L18.4 20.4C18.2 20.6 18 20.6 17.8 20.5L16 19.4C15.7 19.2 15.3 19.2 15 19.4L14.8 19.5C14.5 19.7 14.3 20 14.3 20.4V22C14.3 22.3 14 22.5 13.8 22.5H10.2C10 22.5 9.7 22.3 9.7 22V20.4C9.7 20 9.5 19.7 9.2 19.5L9 19.4C8.7 19.2 8.3 19.2 8 19.4L6.2 20.5C6 20.6 5.7 20.6 5.6 20.4L3.6 18.4C3.4 18.2 3.4 18 3.5 17.8L4.6 16C4.8 15.7 4.8 15.3 4.6 15L4.5 14.8C4.3 14.5 4 14.3 3.6 14.3H2C1.7 14.3 1.5 14 1.5 13.8V10.2C1.5 10 1.7 9.7 2 9.7H3.6C4 9.7 4.3 9.5 4.5 9.2L4.6 9C4.8 8.7 4.8 8.3 4.6 8L3.5 6.2C3.4 6 3.4 5.7 3.6 5.6L5.6 3.6C5.8 3.4 6 3.4 6.2 3.5L8 4.6C8.3 4.8 8.7 4.8 9 4.6L9.2 4.5C9.5 4.3 9.7 4 9.7 3.6V2C9.7 1.7 10 1.5 10.2 1.5H13.8C14 1.5 14.3 1.7 14.3 2V3.6C14.3 4 14.5 4.3 14.8 4.5L15 4.6C15.3 4.8 15.7 4.8 16 4.6L17.8 3.5C18 3.4 18.3 3.4 18.4 3.6L20.4 5.6C20.6 5.8 20.6 6 20.5 6.2L19.4 8C19.2 8.3 19.2 8.7 19.4 9L19.5 9.2C19.7 9.5 20 9.7 20.4 9.7H22C22.3 9.7 22.5 10 22.5 10.2V13.8C22.5 14 22.3 14.3 22 14.3H20.4C20 14.3 19.7 14.5 19.5 14.8L19.4 15Z" stroke="currentColor" stroke-width="2"/></svg>
-      </button>
-    </div>
-  </div>
-
-  <!-- Main Content Wrapper -->
-  <div class="main-container">
-    <!-- Sidebar -->
-    <div class="sidebar">
-      <div class="sidebar-item active" data-filter="all">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 12H21M3 6H21M3 18H21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        <span>All Downloads</span>
-      </div>
-      <div class="sidebar-item" data-filter="downloading">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2L12 16M12 16L7 11M12 16L17 11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        <span>Downloading</span>
-      </div>
-      <div class="sidebar-item" data-filter="completed">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17L4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span>Completed</span>
-      </div>
-      <div class="sidebar-item" data-filter="paused">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor"/><rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor"/></svg>
-        <span>Paused</span>
-      </div>
-    </div>
-
-    <!-- Download List -->
-    <div class="download-list" id="download-list">
-      <!-- Empty State -->
-      <div class="empty-state" id="empty-state">
-        <div class="empty-icon">
-          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" opacity="0.3">
-            <path d="M12 2L12 16M12 16L7 11M12 16L17 11" stroke="url(#grad2)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M4 17V19C4 20.1 4.9 21 6 21H18C19.1 21 20 20.1 20 19V17" stroke="url(#grad2)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <defs><linearGradient id="grad2" x1="4" y1="2" x2="20" y2="21"><stop stop-color="#00d4ff"/><stop offset="1" stop-color="#7b2ff7"/></linearGradient></defs>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>TurboDM - Download Manager</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script>
+      document.documentElement.dataset.theme =
+        localStorage.getItem("theme") || "light";
+    </script>
+  </head>
+  <body>
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m13 2-9 12h7l-1 8 10-12h-7Z" />
           </svg>
         </div>
-        <h3>No Downloads Found</h3>
-        <p>Try changing your filter or search criteria</p>
+        <span
+          >turbo<span class="brand-light">dm</span
+          ><span class="brand-period">.</span></span
+        >
       </div>
-    </div>
-  </div>
-
-  <!-- Status Bar -->
-  <div class="statusbar">
-    <div class="statusbar-left">
-      <span id="status-active">0 active</span>
-      <span class="status-dot">•</span>
-      <span id="status-total">0 downloads</span>
-    </div>
-    <div class="statusbar-right">
-      <span id="status-speed">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M12 2L12 18M12 18L7 13M12 18L17 13" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
-        0 B/s
-      </span>
-    </div>
-  </div>
-
-  <!-- Add Download Modal -->
-  <div class="modal-overlay" id="modal-add" style="display:none">
-    <div class="modal">
-      <div class="modal-header">
-        <h2>Add Download</h2>
-        <button class="modal-close" id="modal-add-close">
-          <svg width="14" height="14" viewBox="0 0 12 12"><path d="M1 1L11 11M11 1L1 11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <div class="workspace-label">YOUR WORKSPACE</div>
+      <nav aria-label="Download status">
+        <button class="sidebar-item" data-filter="all">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="3" y="3" width="7" height="7" rx="1.5" />
+            <rect x="14" y="3" width="7" height="7" rx="1.5" />
+            <rect x="3" y="14" width="7" height="7" rx="1.5" />
+            <rect x="14" y="14" width="7" height="7" rx="1.5" /></svg
+          ><span>All downloads</span
+          ><span class="nav-count" data-count="all">0</span></button
+        ><button class="sidebar-item" data-filter="downloading">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M12 3v12m-5-5 5 5 5-5M4 16v4h16v-4" /></svg
+          ><span>In progress</span
+          ><span class="nav-count" data-count="downloading">0</span></button
+        ><button class="sidebar-item" data-filter="completed">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m5 12 4 4L19 6" /></svg
+          ><span>Completed</span
+          ><span class="nav-count" data-count="completed">0</span></button
+        ><button class="sidebar-item" data-filter="paused">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M8 5v14M16 5v14" /></svg
+          ><span>Paused</span
+          ><span class="nav-count" data-count="paused">0</span></button
+        ><button class="sidebar-item" data-filter="failed">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v6m0 3h.01" /></svg
+          ><span>Needs attention</span
+          ><span class="nav-count" data-count="failed">0</span>
         </button>
+      </nav>
+      <div class="workspace-label category-label">FILE LIBRARY</div>
+      <nav aria-label="File categories">
+        <button class="sidebar-item" data-filter="video">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="3" y="5" width="18" height="14" rx="3" />
+            <path d="m10 9 5 3-5 3Z" /></svg
+          ><span>Videos</span
+          ><span class="nav-count" data-count="video">0</span></button
+        ><button class="sidebar-item" data-filter="audio">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M9 18V5l11-2v13M9 8l11-2" />
+            <ellipse cx="6" cy="18" rx="3" ry="3" />
+            <ellipse cx="17" cy="16" rx="3" ry="3" /></svg
+          ><span>Audio</span
+          ><span class="nav-count" data-count="audio">0</span></button
+        ><button class="sidebar-item" data-filter="archive">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M4 7h16v14H4zM3 3h18v4H3zM10 11h4" /></svg
+          ><span>Archives</span
+          ><span class="nav-count" data-count="archive">0</span></button
+        ><button class="sidebar-item" data-filter="document">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M14 2H5v20h14V7Zm0 0v5h5M8 12h8m-8 4h6" /></svg
+          ><span>Documents</span
+          ><span class="nav-count" data-count="document">0</span></button
+        ><button class="sidebar-item" data-filter="image">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="3" y="3" width="18" height="18" rx="3" />
+            <circle cx="8" cy="8" r="1.5" />
+            <path d="m3 17 5-5 4 4 4-6 5 7" /></svg
+          ><span>Images</span
+          ><span class="nav-count" data-count="image">0</span>
+        </button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="engine-card">
+          <span class="engine-symbol"
+            ><svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="m13 2-9 12h7l-1 8 10-12h-7Z" /></svg></span
+          ><strong>Built for the fast lane.</strong>
+          <p>Parallel connections.<br />One effortless workspace.</p>
+          <span class="engine-tag">UP TO 32 CONNECTIONS</span>
+        </div>
+        <button class="sidebar-settings" id="btn-settings">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M4 7h16M4 17h16" />
+            <circle cx="9" cy="7" r="3" />
+            <circle cx="15" cy="17" r="3" /></svg
+          ><span>Preferences</span><kbd>Ctrl ,</kbd>
+        </button>
+        <div class="sidebar-version">
+          <span class="connection-dot"></span>TurboDM <span>v1.2.0</span>
+        </div>
       </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label for="input-url">Download URL</label>
-          <div class="input-row">
-            <input type="text" id="input-url" placeholder="https://example.com/file.zip" autocomplete="off" spellcheck="false">
-            <button class="btn btn-sm btn-accent" id="btn-analyze" title="Analyze URL">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/><path d="M21 21L16.65 16.65" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-            </button>
+    </aside>
+    <div class="app-shell">
+      <header class="titlebar" id="titlebar">
+        <div class="breadcrumb">
+          Workspace <span>/</span> <strong>Downloads</strong>
+        </div>
+        <div class="titlebar-right">
+          <div class="search-box">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="10.5" cy="10.5" r="6.5" />
+              <path d="m16 16 5 5" /></svg
+            ><input
+              type="search"
+              id="search-input"
+              placeholder="Search downloads"
+              aria-label="Search downloads"
+            /><kbd>Ctrl K</kbd>
+          </div>
+          <button
+            class="icon-btn"
+            id="btn-theme"
+            title="Switch color theme"
+            aria-label="Switch color theme"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M20 14A8 8 0 0 1 10 4a8 8 0 1 0 10 10Z" />
+            </svg></button
+          ><span class="window-divider"></span
+          ><button
+            class="titlebar-btn"
+            id="btn-minimize"
+            title="Minimize"
+            aria-label="Minimize"
+          >
+            −</button
+          ><button
+            class="titlebar-btn btn-close"
+            id="btn-close"
+            title="Close"
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+      </header>
+      <main>
+        <section class="page-heading">
+          <div>
+            <div class="eyebrow">LESS WAITING. MORE DOING.</div>
+            <h1>Your downloads<span class="heading-dot">.</span></h1>
+            <p>Everything you need. Moving at your speed.</p>
+          </div>
+          <button class="btn btn-primary" id="btn-add">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12 5v14M5 12h14" /></svg
+            ><span>New download</span><kbd>Ctrl N</kbd>
+          </button>
+        </section>
+        <section class="overview" aria-label="Transfer overview">
+          <div class="speed-card">
+            <div class="metric-label">
+              <span class="connection-dot"></span>TRANSFER SPEED<span
+                class="live-label"
+                >LIVE</span
+              >
+            </div>
+            <div class="speed-value" id="overview-speed">
+              0 <span>B/s</span>
+            </div>
+            <div class="speed-chart">
+              <svg
+                id="speed-chart"
+                viewBox="0 0 500 70"
+                preserveAspectRatio="none"
+                role="img"
+                aria-label="Transfer speed over the last 30 seconds"
+              >
+                <defs>
+                  <linearGradient id="chart-fill" x1="0" x2="0" y1="0" y2="1">
+                    <stop stop-color="#17a98b" stop-opacity=".22" />
+                    <stop offset="1" stop-color="#17a98b" stop-opacity="0" />
+                  </linearGradient>
+                </defs>
+                <path id="chart-area" fill="url(#chart-fill)" />
+                <path
+                  id="chart-line"
+                  fill="none"
+                  stroke="#159c80"
+                  stroke-width="2"
+                  vector-effect="non-scaling-stroke"
+                />
+              </svg>
+              <div class="chart-axis">
+                <span>30 seconds ago</span><span>Now</span>
+              </div>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon mint">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.7"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12 3v12m-5-5 5 5 5-5M4 16v4h16v-4" />
+              </svg>
+            </div>
+            <span class="metric-label">IN PROGRESS</span>
+            <div class="metric-value" id="metric-active">0</div>
+            <span class="metric-note" id="metric-queue"
+              >Ready when you are</span
+            >
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon lavender">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.7"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="m5 12 4 4L19 6" />
+              </svg>
+            </div>
+            <span class="metric-label">COMPLETED</span>
+            <div class="metric-value" id="metric-completed">0</div>
+            <span class="metric-note" id="metric-volume">0 B downloaded</span>
+          </div>
+        </section>
+        <section class="library" aria-label="Download library">
+          <div class="library-toolbar">
+            <div class="library-title">
+              <h2 id="view-title">All downloads</h2>
+              <span class="count-pill" id="view-count">0</span>
+            </div>
+            <div class="library-controls">
+              <button
+                class="btn btn-quiet"
+                id="btn-pause-all"
+                title="Pause all active downloads"
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M8 5v14M16 5v14" /></svg
+                ><span>Pause all</span></button
+              ><button
+                class="btn btn-quiet"
+                id="btn-resume-all"
+                title="Resume all paused downloads"
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="m8 5 11 7-11 7Z" /></svg
+                ><span>Resume all</span></button
+              ><button
+                class="icon-btn"
+                id="btn-retry-all"
+                title="Retry all failed downloads"
+                aria-label="Retry all failed downloads"
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M3 4v6h6M3 10a9 9 0 1 1 1 8" />
+                </svg></button
+              ><button
+                class="icon-btn"
+                id="btn-clear"
+                title="Clear completed history (keeps files)"
+                aria-label="Clear completed history"
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7" />
+                </svg></button
+              ><span class="control-divider"></span
+              ><select id="sort-order" aria-label="Sort downloads">
+                <option value="newest">Newest first</option>
+                <option value="name">Name A–Z</option>
+                <option value="size">Largest first</option>
+              </select>
+            </div>
+          </div>
+          <div class="list-caption">
+            <span>FILE / TRANSFER DETAILS</span><span>QUICK ACTIONS</span>
+          </div>
+          <div class="download-list" id="download-list">
+            <div class="empty-state" id="empty-state">
+              <div class="empty-art">
+                <span class="empty-orbit orbit-one"></span
+                ><span class="empty-orbit orbit-two"></span>
+                <div class="empty-file">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.7"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 3v12m-5-5 5 5 5-5M4 16v4h16v-4" />
+                  </svg>
+                </div>
+                <span class="empty-mini mini-check"
+                  ><svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.7"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="m5 12 4 4L19 6" /></svg></span
+                ><span class="empty-mini mini-bolt"
+                  ><svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.7"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="m13 2-9 12h7l-1 8 10-12h-7Z" /></svg
+                ></span>
+              </div>
+              <span class="eyebrow">A CLEAR SPACE. A FAST START.</span>
+              <h3>Your next download starts here</h3>
+              <p>Add a link and let TurboDM take care of the rest.</p>
+              <button class="btn btn-primary" id="empty-add">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12 5v14M5 12h14" /></svg
+                >Add your first download</button
+              ><span class="empty-hint"
+                >Or press <kbd>Ctrl N</kbd> from anywhere</span
+              >
+            </div>
+          </div>
+        </section>
+      </main>
+      <footer class="statusbar">
+        <div class="statusbar-left">
+          <span class="connection-dot"></span
+          ><span id="status-active">0 active</span
+          ><span class="status-dot">/</span
+          ><span id="status-total">0 downloads</span>
+        </div>
+        <div class="statusbar-right">
+          <span>All systems at your pace</span
+          ><span id="status-speed">0 B/s</span>
+        </div>
+      </footer>
+    </div>
+    <div
+      class="notification"
+      id="notification"
+      role="status"
+      aria-live="polite"
+      hidden
+    ></div>
+    <!-- Add Download Modal -->
+    <div
+      class="modal-overlay"
+      id="modal-add"
+      aria-label="New download"
+      style="display: none"
+    >
+      <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-dialog-title"
+        tabindex="-1"
+      >
+        <div class="modal-header">
+          <div>
+            <span class="eyebrow">LET’S GET IT MOVING</span>
+            <h2 id="add-dialog-title">New download</h2>
+          </div>
+          <button
+            class="modal-close"
+            id="modal-add-close"
+            aria-label="Close new download"
+          >
+            <svg width="14" height="14" viewBox="0 0 12 12">
+              <path
+                d="M1 1L11 11M11 1L1 11"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <p class="modal-intro">One link. We’ll handle the heavy lifting.</p>
+            <label for="input-url">Download link</label>
+            <div class="input-row">
+              <input
+                type="text"
+                id="input-url"
+                placeholder="Paste your download link here…"
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <button
+                class="btn btn-sm btn-accent"
+                id="btn-analyze"
+                title="Analyze URL"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <circle
+                    cx="11"
+                    cy="11"
+                    r="8"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  />
+                  <path
+                    d="M21 21L16.65 16.65"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="form-error" id="add-error" role="alert" hidden></div>
+          <div class="file-info" id="file-info" style="display: none">
+            <div class="info-grid">
+              <div class="info-item">
+                <span class="info-label">File Name</span>
+                <span class="info-value" id="info-filename">—</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">File Size</span>
+                <span class="info-value" id="info-filesize">—</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Resumable</span>
+                <span class="info-value" id="info-resumable">—</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Connections</span>
+                <span class="info-value" id="info-connections">—</span>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="input-filename">Save As</label>
+            <input type="text" id="input-filename" placeholder="filename.zip" />
+          </div>
+          <div class="form-row">
+            <div class="form-group flex-1" id="group-connections">
+              <label for="input-connections">Connections</label>
+              <select id="input-connections">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="4">4</option>
+                <option value="8">8</option>
+                <option value="16">16</option>
+                <option value="32" selected>32</option>
+              </select>
+            </div>
+            <div class="form-group flex-1" id="group-transfer-mode">
+              <label for="input-transfer-mode">Transfer Mode</label>
+              <select id="input-transfer-mode">
+                <option value="auto" selected>Auto (recommended)</option>
+                <option value="parallel">Parallel (force)</option>
+                <option value="single">Series (single connection)</option>
+              </select>
+            </div>
+            <div
+              class="form-group flex-1"
+              id="group-quality"
+              style="display: none"
+            >
+              <label for="input-quality">Video Quality</label>
+              <select id="input-quality">
+                <option value="best">Best Quality (Auto)</option>
+              </select>
+            </div>
           </div>
         </div>
-        <div class="file-info" id="file-info" style="display:none">
-          <div class="info-grid">
-            <div class="info-item">
-              <span class="info-label">File Name</span>
-              <span class="info-value" id="info-filename">—</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">File Size</span>
-              <span class="info-value" id="info-filesize">—</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Resumable</span>
-              <span class="info-value" id="info-resumable">—</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Connections</span>
-              <span class="info-value" id="info-connections">—</span>
-            </div>
-          </div>
-        </div>
-        <div class="form-group">
-          <label for="input-filename">Save As</label>
-          <input type="text" id="input-filename" placeholder="filename.zip">
-        </div>
-        <div class="form-row">
-          <div class="form-group flex-1" id="group-connections">
-            <label for="input-connections">Connections</label>
-            <select id="input-connections">
-              <option value="1">1</option>
-              <option value="2">2</option>
-              <option value="4">4</option>
-              <option value="8">8</option>
-              <option value="16">16</option>
-              <option value="32" selected>32</option>
-            </select>
-          </div>
-          <div class="form-group flex-1" id="group-transfer-mode">
-            <label for="input-transfer-mode">Transfer Mode</label>
-            <select id="input-transfer-mode">
-              <option value="auto" selected>Auto (recommended)</option>
-              <option value="parallel">Parallel (force)</option>
-              <option value="single">Series (single connection)</option>
-            </select>
-          </div>
-          <div class="form-group flex-1" id="group-quality" style="display:none">
-            <label for="input-quality">Video Quality</label>
-            <select id="input-quality">
-              <option value="best">Best Quality (Auto)</option>
-            </select>
-          </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" id="btn-cancel-add">Cancel</button>
+          <button class="btn btn-primary" id="btn-start-download">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M12 2L12 16M12 16L7 11M12 16L17 11"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
+              <path
+                d="M4 17V19C4 20.1 4.9 21 6 21H18C19.1 21 20 20.1 20 19V17"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
+            </svg>
+            Download
+          </button>
         </div>
       </div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" id="btn-cancel-add">Cancel</button>
-        <button class="btn btn-primary" id="btn-start-download">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2L12 16M12 16L7 11M12 16L17 11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4 17V19C4 20.1 4.9 21 6 21H18C19.1 21 20 20.1 20 19V17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </div>
+
+    <!-- Settings Modal -->
+    <div
+      class="modal-overlay"
+      id="modal-settings"
+      aria-label="Preferences"
+      style="display: none"
+    >
+      <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-dialog-title"
+        tabindex="-1"
+      >
+        <div class="modal-header">
+          <div>
+            <span class="eyebrow">MAKE IT YOURS</span>
+            <h2 id="settings-dialog-title">Preferences</h2>
+          </div>
+          <button
+            class="modal-close"
+            id="modal-settings-close"
+            aria-label="Close preferences"
+          >
+            <svg width="14" height="14" viewBox="0 0 12 12">
+              <path
+                d="M1 1L11 11M11 1L1 11"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="settings-dir">Default Download Directory</label>
+            <div class="input-row">
+              <input type="text" id="settings-dir" readonly />
+              <button class="btn btn-sm btn-accent" id="btn-browse-dir">
+                Browse
+              </button>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label for="settings-concurrent">Max Concurrent Downloads</label>
+              <select id="settings-concurrent">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="5" selected>5</option>
+                <option value="8">8</option>
+              </select>
+            </div>
+            <div class="form-group flex-1">
+              <label for="settings-connections">Default Connections</label>
+              <select id="settings-connections">
+                <option value="1">1</option>
+                <option value="4">4</option>
+                <option value="8">8</option>
+                <option value="16">16</option>
+                <option value="32">32</option>
+                <option value="64" selected>64</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" id="btn-cancel-settings">Cancel</button>
+          <button class="btn btn-primary" id="btn-save-settings">
+            Save Settings
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Clipboard Toast -->
+    <div class="toast" id="clipboard-toast" style="display: none">
+      <div class="toast-content">
+        <div class="toast-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M12 2L12 16M12 16L7 11M12 16L17 11"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+            <path
+              d="M4 17V19C4 20.1 4.9 21 6 21H18C19.1 21 20 20.1 20 19V17"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+          </svg>
+        </div>
+        <div class="toast-text">
+          <span class="toast-title">Download Link Detected</span>
+          <span class="toast-url" id="toast-url"></span>
+        </div>
+      </div>
+      <div class="toast-actions">
+        <button class="btn btn-sm btn-primary" id="toast-download">
           Download
         </button>
+        <button class="btn btn-sm btn-ghost" id="toast-dismiss">Dismiss</button>
       </div>
     </div>
-  </div>
 
-  <!-- Settings Modal -->
-  <div class="modal-overlay" id="modal-settings" style="display:none">
-    <div class="modal">
-      <div class="modal-header">
-        <h2>Settings</h2>
-        <button class="modal-close" id="modal-settings-close">
-          <svg width="14" height="14" viewBox="0 0 12 12"><path d="M1 1L11 11M11 1L1 11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    <!-- Auto-Start Toast (shown when extension starts a download automatically) -->
+    <div class="toast" id="autostart-toast" style="display: none; bottom: 80px">
+      <div class="toast-content">
+        <div class="toast-icon" style="color: var(--success)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M20 6L9 17L4 12"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </div>
+        <div class="toast-text">
+          <span class="toast-title">Download Started</span>
+          <span
+            class="toast-url"
+            id="autostart-toast-name"
+            style="
+              max-width: 240px;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            "
+          ></span>
+        </div>
+      </div>
+      <div class="toast-actions">
+        <button class="btn btn-sm btn-ghost" id="autostart-toast-dismiss">
+          OK
         </button>
       </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label for="settings-dir">Default Download Directory</label>
-          <div class="input-row">
-            <input type="text" id="settings-dir" readonly>
-            <button class="btn btn-sm btn-accent" id="btn-browse-dir">Browse</button>
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group flex-1">
-            <label for="settings-concurrent">Max Concurrent Downloads</label>
-            <select id="settings-concurrent">
-              <option value="1">1</option>
-              <option value="2">2</option>
-              <option value="3">3</option>
-              <option value="5" selected>5</option>
-              <option value="8">8</option>
-            </select>
-          </div>
-          <div class="form-group flex-1">
-            <label for="settings-connections">Default Connections</label>
-            <select id="settings-connections">
-              <option value="1">1</option>
-              <option value="4">4</option>
-              <option value="8">8</option>
-              <option value="16">16</option>
-              <option value="32">32</option>
-              <option value="64" selected>64</option>
-            </select>
-          </div>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" id="btn-cancel-settings">Cancel</button>
-        <button class="btn btn-primary" id="btn-save-settings">Save Settings</button>
-      </div>
     </div>
-  </div>
 
-  <!-- Clipboard Toast -->
-  <div class="toast" id="clipboard-toast" style="display:none">
-    <div class="toast-content">
-      <div class="toast-icon">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2L12 16M12 16L7 11M12 16L17 11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4 17V19C4 20.1 4.9 21 6 21H18C19.1 21 20 20.1 20 19V17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      </div>
-      <div class="toast-text">
-        <span class="toast-title">Download Link Detected</span>
-        <span class="toast-url" id="toast-url"></span>
-      </div>
-    </div>
-    <div class="toast-actions">
-      <button class="btn btn-sm btn-primary" id="toast-download">Download</button>
-      <button class="btn btn-sm btn-ghost" id="toast-dismiss">Dismiss</button>
-    </div>
-  </div>
-
-  <!-- Auto-Start Toast (shown when extension starts a download automatically) -->
-  <div class="toast" id="autostart-toast" style="display:none; bottom: 80px;">
-    <div class="toast-content">
-      <div class="toast-icon" style="color:var(--success)">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17L4 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
-      <div class="toast-text">
-        <span class="toast-title">Download Started</span>
-        <span class="toast-url" id="autostart-toast-name" style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
-      </div>
-    </div>
-    <div class="toast-actions">
-      <button class="btn btn-sm btn-ghost" id="autostart-toast-dismiss">OK</button>
-    </div>
-  </div>
-
-  <script src="renderer.js"></script>
-</body>
+    <script src="renderer.js"></script>
+  </body>
 </html>

@@ -66,7 +66,53 @@ npm install
 npm start
 ```
 
+### Download workspace
+
+The redesigned desktop workspace includes light and dark themes, a live 30-second
+transfer chart, status and file-type filters, filename/source search, sorting,
+and per-download pause, resume, retry, connection-mode and file actions.
+
+Keyboard shortcuts: **Ctrl/Cmd + N** adds a download, **Ctrl/Cmd + K** focuses
+search, **Ctrl/Cmd + ,** opens preferences, and **Escape** closes a dialog.
+Clearing completed history keeps downloaded files on disk.
+
+### Validation
+
+```bash
+npm run test:parallel-fallback
+npm run test:integrity
+npm run test:pause-resume-integrity
+```
+
+To run the desktop interaction checks, use Node.js 22+ and launch a development
+instance with local debugging enabled:
+
+```bash
+npm start -- --remote-debugging-port=9222
+# In another terminal:
+node scripts/test-renderer.mjs
+node scripts/test-renderer-download.mjs
+```
+
+The first UI suite uses temporary renderer fixtures and reloads the real library
+when finished. The second analyzes, downloads, pauses, resumes and verifies a
+2 MiB local fixture, then removes its own history and file. It leaves existing
+downloads and preferences intact. Set `TURBODM_DEBUG_PORT` for a different debug
+port. Set `TURBODM_SCREENSHOT_DIR` to save UI review screenshots. Debugging is
+intended for local development only.
+
+On headless Linux, launch Electron with a virtual display. The prepared cloud
+machine provides `/workspace/.turbodm-tools/start.sh`; run it with
+`--remote-debugging-port=9222` for these checks. This container requires
+`--no-sandbox --disable-gpu`; the helper supplies those flags.
+
 ### Packaging
+
+Pushes to `main` build a Windows x64 NSIS installer in GitHub Actions. Open the
+**Windows installer** workflow and download **TurboDM-Windows-x64** from its
+artifacts. The artifact includes the installer and its SHA256 checksum. These
+builds are unsigned. The build generates the app icon automatically and installs
+verified Windows yt-dlp and FFmpeg binaries.
 ```bash
 # Build the standalone Windows installer
 npm run build

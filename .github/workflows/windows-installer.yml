@@ -1,0 +1,65 @@
+name: Windows installer
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    env:
+      YOUTUBE_DL_SKIP_DOWNLOAD: '1'
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Install verified Windows yt-dlp
+        shell: pwsh
+        run: |
+          $base = 'https://github.com/yt-dlp/yt-dlp/releases/download/2026.08.19'
+          $target = 'node_modules/yt-dlp-exec/bin/yt-dlp.exe'
+          New-Item -ItemType Directory -Force (Split-Path $target) | Out-Null
+          Invoke-WebRequest "$base/yt-dlp.exe" -OutFile $target
+          $checksums = (Invoke-WebRequest "$base/SHA2-256SUMS").Content
+          $line = ($checksums -split "`n" | Where-Object { $_ -match '\s+yt-dlp\.exe\s*$' })
+          if (!$line) { throw 'Missing official yt-dlp checksum' }
+          $expected = ($line.Trim() -split '\s+')[0]
+          $actual = (Get-FileHash $target -Algorithm SHA256).Hash
+          if ($actual -ne $expected) { throw 'yt-dlp checksum mismatch' }
+          & $target --version
+          if ($LASTEXITCODE -ne 0) { throw 'yt-dlp could not run' }
+          & .\node_modules\ffmpeg-static\ffmpeg.exe -version
+          if ($LASTEXITCODE -ne 0) { throw 'FFmpeg could not run' }
+      - name: Test download engine
+        run: |
+          npm run test:parallel-fallback
+          npm run test:integrity
+          npm run test:pause-resume-integrity
+      - name: Build Windows x64 installer
+        run: npm run build -- --publish never
+      - name: Check installer and create checksum
+        shell: pwsh
+        run: |
+          $installer = Get-Item 'dist/TurboDM Setup *.exe'
+          if (!$installer -or $installer.Length -lt 10MB) { throw 'Installer missing or incomplete' }
+          $hash = (Get-FileHash $installer.FullName -Algorithm SHA256).Hash.ToLower()
+          "$hash  $($installer.Name)" | Set-Content 'dist/SHA256SUMS.txt' -Encoding utf8
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TurboDM-Windows-x64
+          path: |
+            dist/TurboDM Setup *.exe
+            dist/TurboDM Setup *.exe.blockmap
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
