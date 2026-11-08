@@ -150,6 +150,7 @@ function renderDownloadItem(dl) {
     completed || status === "failed" ? "Remove from list" : "Cancel download",
     "cancel",
   );
+  actions += `<button class="btn btn-ghost details-button" data-action="details" aria-label="Show transfer details">Details</button>`;
   const size = completed
     ? formatBytes(dl.fileSize || dl.downloadedBytes || 0)
     : `${formatBytes(dl.downloadedBytes || 0)}${dl.fileSize > 0 ? " / " + formatBytes(dl.fileSize) : ""}`;
@@ -162,7 +163,7 @@ function renderDownloadItem(dl) {
     cancelled: "Cancelled",
   };
   return `<article class="download-item ${status}" data-id="${escapeHtml(dl.id)}" aria-label="${escapeHtml(name)} — ${labels[status]}">
-    <div class="download-header"><div class="download-info"><div class="file-icon ${type}">${glyph(type)}<span>${escapeHtml(getFileExt(name))}</span></div><div class="file-details"><div class="file-name" title="${escapeHtml(name)}">${escapeHtml(name)}</div><div class="file-source" title="${escapeHtml(source)}">${escapeHtml(source)}</div><div class="file-meta"><span class="status-badge ${status}"><span class="status-dot-indicator"></span>${labels[status]}</span><span class="dot">·</span><span class="text-size">${size}</span><span class="text-eta-wrapper" style="display:${active && dl.eta > 0 ? "inline" : "none"}"><span class="dot"> · </span><span class="text-eta">${formatTime(dl.eta)} left</span></span></div></div></div><div class="download-actions">${actions}</div></div>
+    <div class="download-header"><div class="download-info"><div class="file-icon ${type}">${glyph(type)}<span>${escapeHtml(getFileExt(name))}</span></div><div class="file-details"><div class="file-name" title="${escapeHtml(name)}">${escapeHtml(name)}</div><div class="file-source" title="${escapeHtml(source)}">${escapeHtml(source)}</div><div class="file-meta"><span class="status-badge ${status}">${labels[status]}</span><span class="text-size">${size}</span><span class="text-eta-wrapper" style="display:${active && dl.eta > 0 ? "inline" : "none"}"><span class="text-eta">${formatTime(dl.eta)} left</span></span></div></div></div><div class="download-actions">${actions}</div></div>
     <div class="progress-container"><div class="progress-bar" role="progressbar" aria-label="Download progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}"><div class="progress-fill ${status}" style="width:${progress}%"></div></div>
     ${!completed && dl.chunks?.length > 1 ? `<div class="chunks-bar" aria-hidden="true">${dl.chunks.map((c) => `<div class="chunk-segment"><div class="chunk-fill" style="width:${Math.max(0, Math.min(c.progress || 0, 100))}%"></div></div>`).join("")}</div>` : ""}
     ${status === "failed" ? `<div class="error-detail">${escapeHtml(dl.error || "The transfer was interrupted. Try again when you’re ready.")}</div>` : renderTransportNotice(completed ? {} : dl)}
@@ -373,6 +374,8 @@ function updateStatusBar() {
     0,
   );
 
+  document.querySelector(".overview").hidden = active === 0;
+  refreshDetails();
   document.getElementById("metric-active").textContent = active;
   const completed = downloads.filter((d) => d.status === "completed");
   document.getElementById("metric-completed").textContent = completed.length;
@@ -512,7 +515,7 @@ async function analyzeUrl(url, formatId, headers = addModalHeaders) {
   const request = ++analysisRequest;
   const $btn = document.getElementById("btn-analyze");
   $btn.innerHTML =
-    '<div class="analyzing-spinner"><span></span><span></span><span></span></div>';
+    '<span class="analyzing-ring" aria-label="Analyzing link"></span>';
   $btn.disabled = true;
 
   try {
@@ -714,6 +717,7 @@ document.getElementById("btn-theme").addEventListener("click", () => {
   const newTheme = currentTheme === "dark" ? "light" : "dark";
   document.documentElement.setAttribute("data-theme", newTheme);
   localStorage.setItem("theme", newTheme);
+  window.tdm.updateSettings({ theme: newTheme });
 });
 
 // Add modal
@@ -822,6 +826,9 @@ $modalSettings.addEventListener("click", (e) => {
 // Close modals on Escape
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
+    if (detailsDialog.open) { e.preventDefault(); detailsDialog.close(); return; }
+    const filterMenu = document.querySelector(".filter-menu");
+    if (filterMenu.open) { filterMenu.open = false; filterMenu.querySelector("summary").focus(); return; }
     hideAddModal();
     hideSettings();
     hideClipboardToast();
@@ -937,7 +944,7 @@ document.addEventListener("keydown", (event) => {
       first?.focus();
     }
   }
-  if (!(event.ctrlKey || event.metaKey) || modal) return;
+  if (!(event.ctrlKey || event.metaKey) || modal || detailsDialog.open) return;
   if (event.key.toLowerCase() === "n") {
     event.preventDefault();
     showAddModal();
@@ -968,12 +975,13 @@ document.getElementById("sort-order").addEventListener("change", (event) => {
 document
   .getElementById("empty-add")
   .addEventListener("click", () => showAddModal());
-$downloadList.addEventListener("click", async (event) => {
+async function handleTransferAction(event) {
   const button = event.target.closest("[data-action]");
   const item = button?.closest("[data-id]");
   if (!item) return;
   const dl = downloads.find((d) => d.id === item.dataset.id);
   if (!dl) return;
+  if (button.dataset.action === "details") { showDetails(dl.id); return; }
   button.disabled = true;
   try {
     switch (button.dataset.action) {
@@ -1009,7 +1017,40 @@ $downloadList.addEventListener("click", async (event) => {
   } finally {
     button.disabled = false;
   }
-});
+}
+$downloadList.addEventListener("click", handleTransferAction);
+document.getElementById("details-actions").addEventListener("click", handleTransferAction);
+const detailsDialog = document.getElementById("download-details");
+let detailsId = null;
+let detailsReturnFocus = null;
+function refreshDetails() {
+  if (!detailsId) return;
+  const dl = downloads.find(d => d.id === detailsId);
+  if (!dl) { detailsDialog.close(); return; }
+  const values = { name: dl.fileName || "Download", status: dl.status, source: dl.url, path: dl.savePath || "Not selected", size: `${formatBytes(dl.downloadedBytes || 0)} / ${dl.fileSize ? formatBytes(dl.fileSize) : "Unknown size"}`, connections: `${dl.activeConnections || 0} active / ${dl.connections || 1} configured`, notice: dl.error || dl.transportNotice || "" };
+  for (const [key, value] of Object.entries(values)) document.getElementById(`details-${key}`).textContent = value;
+  const actions = document.getElementById("details-actions");
+  actions.dataset.id = dl.id;
+  if (actions.dataset.status !== dl.status || actions.dataset.mode !== dl.connectionMode) {
+    actions.dataset.status = dl.status;
+    actions.dataset.mode = dl.connectionMode;
+    const row = document.createElement("div"); row.innerHTML = renderDownloadItem(dl);
+    actions.innerHTML = row.querySelector(".download-actions").innerHTML;
+    actions.querySelector('[data-action="details"]')?.remove();
+  }
+}
+function showDetails(id) {
+  detailsReturnFocus = document.activeElement;
+  detailsId = id;
+  refreshDetails();
+  detailsDialog.showModal();
+  document.getElementById("details-close").focus();
+}
+document.getElementById("details-close").onclick = () => detailsDialog.close();
+detailsDialog.addEventListener("click", event => { if (event.target === detailsDialog && event.clientX < detailsDialog.getBoundingClientRect().left) detailsDialog.close(); });
+detailsDialog.addEventListener("close", () => { detailsId = null; if (detailsReturnFocus?.isConnected) detailsReturnFocus.focus(); else document.getElementById("btn-add").focus(); });
+document.querySelectorAll('.filter-menu button').forEach(button => button.addEventListener('click', () => { document.querySelector('.filter-menu').open = false; document.querySelector('.filter-menu summary').focus(); }));
+document.addEventListener('click', event => { if (!event.target.closest('.filter-menu')) document.querySelector('.filter-menu').open = false; });
 const speedHistory = Array(30).fill(0);
 setInterval(() => {
   const speed = downloads.reduce(
@@ -1044,3 +1085,6 @@ setInterval(() => {
   nextAddedOrder = downloads.length + 1;
   renderDownloads();
 })();
+
+// Share the desktop theme with browser integration without changing transfer settings.
+window.tdm.updateSettings({ theme: document.documentElement.getAttribute("data-theme") || "light" });

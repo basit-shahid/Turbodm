@@ -14,8 +14,9 @@ echo.
 echo To enable the browser extension for enhanced downloads:
 echo.
 echo 1. Your browser is opening to the extensions page...
-echo 2. Look for "TurboDM" in the extensions list
-echo 3. Click "Enable" or "Add to Chrome/Edge"
+echo 2. Enable Developer mode and click "Load unpacked"
+echo 3. Select the browser-extension folder inside your installation resources folder
+echo    Typical path: %~dp0resources\browser-extension
 echo.
 echo The extension will allow you to:
 echo - Download videos with a single click
@@ -41,13 +42,13 @@ if "%ERRORLEVEL%"=="0" (
         REM Try to open Chrome from default location
         if exist "C:\Program Files\Google\Chrome\Application\chrome.exe" (
             echo Opening Chrome...
-            start "C:\Program Files\Google\Chrome\Application\chrome.exe" "chrome://extensions"
+            start "" "C:\Program Files\Google\Chrome\Application\chrome.exe" "chrome://extensions"
         ) else if exist "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" (
             echo Opening Chrome...
-            start "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" "chrome://extensions"
+            start "" "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" "chrome://extensions"
         ) else if exist "C:\Program Files\Microsoft\Edge\Application\msedge.exe" (
             echo Opening Edge...
-            start "C:\Program Files\Microsoft\Edge\Application\msedge.exe" "edge://extensions"
+            start "" "C:\Program Files\Microsoft\Edge\Application\msedge.exe" "edge://extensions"
         ) else (
             echo.
             echo Could not automatically detect your browser.
@@ -56,7 +57,7 @@ if "%ERRORLEVEL%"=="0" (
             echo - Chrome: chrome://extensions
             echo - Edge: edge://extensions
             echo.
-            echo Then search for "TurboDM" and enable the extension.
+            echo Enable Developer mode, click Load unpacked, and select resources\browser-extension.
             echo.
         )
     )

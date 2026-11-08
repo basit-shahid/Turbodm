@@ -18,7 +18,7 @@ Thank you for installing TurboDM!
    - Click **Load unpacked**
    - Navigate to the TurboDM installation folder:
      ```
-     C:\Program Files\TurboDM\resources\app\browser-extension
+     C:\Program Files\TurboDM\resources\browser-extension
      ```
    - Select the `browser-extension` folder
    - Click **Open** → **Select Folder**
@@ -41,7 +41,7 @@ Thank you for installing TurboDM!
    - Click **Load unpacked**
    - Navigate to the TurboDM installation folder:
      ```
-     C:\Program Files\TurboDM\resources\app\browser-extension
+     C:\Program Files\TurboDM\resources\browser-extension
      ```
    - Select the `browser-extension` folder
    - Click **Select Folder**
@@ -69,7 +69,9 @@ Once enabled, the TurboDM extension provides:
 **Downloads not working?**
 - Ensure TurboDM application is running
 - Check that TurboDM is listening on port 10101
-- Try Shift+Click for manual TurboDM routing
+- Open the extension popup: it should show **Desktop connected**.
+- Use the right-click **Download with TurboDM** command or paste an HTTP link in the popup.
+- After upgrading TurboDM, reload the extension in Chrome/Edge and accept its updated permissions.
 
 **Need Help?**
 - Check the TurboDM application logs
@@ -79,3 +81,21 @@ Once enabled, the TurboDM extension provides:
 ---
 
 **Happy downloading!** 🚀
+
+## Capture and chatbot files
+
+Keep TurboDM running. The extension pauses HTTP downloads and cancels them only after
+TurboDM accepts them. Rejected handoffs resume in the browser; the browser download UI
+stays available. Pause capture from the toolbar popup when needed.
+
+Explicit `download` links using blob/data URLs can import generated files up to 32 MiB
+into TurboDM. Bigger generated files, POST responses, and browser-owned blob downloads
+stay in Chrome/Edge. Sites using private APIs, one-use URLs, DRM, or inaccessible page
+storage cannot all be replayed by a desktop downloader. Use the browser fallback for them.
+Cookies and authorization are forwarded for the matching source origin, kept in memory,
+and stripped on cross-origin redirects. After restarting the app, protected downloads
+may need to be captured again from the signed-in page.
+
+The popup and video button use the desktop workspace's porcelain/indigo palette, typography,
+rounded controls and light/dark themes. The popup follows the desktop theme on opening
+unless a browser theme was explicitly chosen.

@@ -191,6 +191,27 @@ class DownloadManager extends EventEmitter {
     return engine.getState();
   }
 
+  async importBrowserFile(buffer, options = {}) {
+    const fs = require('node:fs/promises');
+    const { randomUUID } = require('node:crypto');
+    const id = randomUUID();
+    const fileName = path.basename(String(options.fileName || 'download').replace(/[:<>"|?*\\/\x00-\x1f]/g, '_')).replace(/^\.+$/, '_') || 'download';
+    const directory = path.join(this.defaultDownloadDir, getDownloadCategory(fileName));
+    await fs.mkdir(directory, { recursive: true });
+    let savePath = path.join(directory, fileName);
+    let handle;
+    for (let attempt = 0; !handle; attempt++) {
+      try { handle = await fs.open(savePath, 'wx'); }
+      catch (error) { if (error.code !== 'EEXIST') throw error; savePath = path.join(directory, `${path.parse(fileName).name} (${id.slice(0, 8)}-${attempt})${path.extname(fileName)}`); }
+    }
+    try { await handle.writeFile(buffer); } catch (error) { await fs.unlink(savePath).catch(() => {}); throw error; } finally { await handle.close(); }
+    const state = { id, url: options.url?.startsWith('blob:') ? options.url : 'browser-import:', fileName: path.basename(savePath), savePath, fileSize: buffer.length, downloadedBytes: buffer.length, progress: 100, status: 'completed', speed: 0, connections: 1, connectionMode: 'single', mimeType: options.mimeType || 'application/octet-stream', chunks: [] };
+    this.downloads.set(id, { engine: null, state });
+    this._saveState();
+    this.emit('download-update', state);
+    return state;
+  }
+
   pauseDownload(id) {
     const entry = this.downloads.get(id);
     if (entry && entry.engine) {
@@ -280,6 +301,7 @@ class DownloadManager extends EventEmitter {
       downloadDir: this.defaultDownloadDir,
       maxConcurrent: this.maxConcurrent,
       defaultConnections: this.defaultConnections,
+      theme: this.store.get('settings', {}).theme || 'light',
     };
   }
 
@@ -289,6 +311,7 @@ class DownloadManager extends EventEmitter {
     if (settings.defaultConnections) this.defaultConnections = settings.defaultConnections;
 
     this.store.set('settings', {
+      theme: ['light', 'dark'].includes(settings.theme) ? settings.theme : this.getSettings().theme,
       downloadDir: this.defaultDownloadDir,
       maxConcurrent: this.maxConcurrent,
       defaultConnections: this.defaultConnections,

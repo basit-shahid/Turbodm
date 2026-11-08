@@ -1,6 +1,5 @@
 const { app, BrowserWindow, ipcMain, clipboard, dialog, shell, Tray, Menu, nativeImage } = require('electron');
 const path = require('path');
-const http = require('http');
 const DownloadManager = require('./src/download-manager');
 const DownloadEngine = require('./src/download-engine');
 
@@ -307,62 +306,10 @@ if (!gotTheLock) {
 }
 
 function createLocalServer() {
-  const server = http.createServer((req, res) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-    if (req.method === 'OPTIONS') {
-      res.writeHead(200);
-      res.end();
-      return;
-    }
-
-    if (req.method === 'POST' && req.url === '/download') {
-      let body = '';
-      req.on('data', chunk => body += chunk.toString());
-      req.on('end', async () => {
-        try {
-          const data = JSON.parse(body);
-          if (data.url) {
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: true }));
-
-            // Auto-start the download immediately using headers from the browser.
-            // This is critical for short-lived pre-signed URLs (Claude, Gemini, ChatGPT)
-            // which expire within seconds — we cannot wait for the user to click through the toast.
-            try {
-              const settings = downloadManager.getSettings();
-              const result = await downloadManager.addDownload(data.url, {
-                downloadDir: settings.downloadDir,
-                headers: data.headers || {},
-              });
-              // Notify UI that download has been queued automatically
-              if (mainWindow && !mainWindow.isDestroyed()) {
-                mainWindow.webContents.send('download-update', result);
-                mainWindow.webContents.send('extension-download-started', {
-                  url: data.url,
-                  fileName: result.fileName || data.url,
-                });
-              }
-            } catch (e) {
-              // If auto-start fails (e.g. 404, network error), fall back to manual toast
-              // so the user has a chance to review and try manually.
-              console.error('[TurboDM] Auto-start failed, falling back to toast:', e.message);
-              if (mainWindow && !mainWindow.isDestroyed()) {
-                mainWindow.webContents.send('clipboard-url', { url: data.url, headers: data.headers || {} });
-                forceFocusWindow();
-              }
-            }
-            return;
-          }
-        } catch (e) {}
-        res.writeHead(400);
-        res.end(JSON.stringify({ error: 'Invalid payload expected {"url": "..."}' }));
-      });
-    } else {
-      res.writeHead(404);
-      res.end();
+  const server = require('./src/browser-bridge').createBrowserBridge(downloadManager, result => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('download-update', result);
+      mainWindow.webContents.send('extension-download-started', { url: result.url, fileName: result.fileName });
     }
   });
 

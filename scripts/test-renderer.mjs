@@ -201,6 +201,23 @@ try {
     "parallel",
   );
   pass("live progress and connection mode updates");
+  await evaluate("document.querySelector('[data-id=ui-video] [data-action=details]').focus(); document.querySelector('[data-id=ui-video] [data-action=details]').click()");
+  assert.equal(await evaluate("document.getElementById('download-details').open"), true);
+  assert.match(await evaluate("document.getElementById('details-source').textContent"), /media\.example\.com/);
+  assert.equal(await evaluate("document.activeElement.id"), "details-close");
+  await screenshot("transfer-details");
+  assert.equal(await evaluate("document.querySelector('#details-actions [data-action=mode]').dataset.mode"), "parallel");
+  await command("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape" });
+  await command("Input.dispatchKeyEvent", { type: "keyUp", key: "Escape", code: "Escape" });
+  assert.equal(await evaluate("document.getElementById('download-details').open"), false);
+  assert.equal(await evaluate("document.activeElement.dataset.action"), "details");
+  await evaluate("document.querySelector('.filter-menu').open=true; document.querySelector('[data-filter=archive]').click()");
+  assert.equal(await evaluate("document.querySelector('.filter-menu').open"), false);
+  assert.equal(await evaluate("document.querySelectorAll('.download-item').length"), 1);
+  assert.equal(await evaluate("document.querySelector('.download-item').dataset.id"), "ui-archive");
+  await evaluate("document.querySelector('[data-filter=all]').click()");
+  pass("details drawer keyboard focus and file type menu");
+
   await evaluate(
     "document.getElementById('btn-add').focus(); document.getElementById('btn-add').click(); document.getElementById('input-url').value='javascript:alert(1)'; startDownload()",
   );

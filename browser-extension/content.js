@@ -1,114 +1,44 @@
-const TURBODM_API = 'http://127.0.0.1:10101/download';
-const RETRY_INTERVAL_MS = 1500;
-const RETRY_MAX_DURATION_MS = 15000;
-
-const SKIP_PATTERNS = [
-  /^blob:/i,
-  /^data:/i,
-  /^file:/i,
-  /^chrome/i,
-  /^edge/i,
-  /^about:/i,
-  /^chrome-extension:/i,
-  /^moz-extension:/i,
-];
-
-const DOWNLOADABLE_EXTENSIONS = new Set([
-  'zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz',
-  'exe', 'msi', 'dmg', 'pkg', 'deb', 'rpm', 'apk',
-  'iso', 'img',
-  'pdf', 'epub',
-  'mp4', 'mkv', 'avi', 'mov', 'wmv', 'webm', 'm4v',
-  'mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg',
-  'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg',
-  'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'csv',
-]);
-
-function isSkippableUrl(url) {
-  return !url || SKIP_PATTERNS.some((pattern) => pattern.test(url));
+function showStatus(text) {
+  let toast = document.getElementById('turbodm-status');
+  if (!toast) { toast = document.createElement('div'); toast.id = 'turbodm-status'; toast.setAttribute('role', 'status'); document.documentElement.appendChild(toast); }
+  toast.textContent = text;
+  clearTimeout(showStatus.timer);
+  showStatus.timer = setTimeout(() => toast.remove(), 7000);
 }
 
-function isLikelyDirectDownloadLink(anchor) {
-  if (!anchor || !anchor.href) return false;
-  if (anchor.hasAttribute('download')) return true;
-  if (isSkippableUrl(anchor.href)) return false;
-
+async function sendToTurboDM(url, fileName) {
   try {
-    const parsed = new URL(anchor.href, window.location.href);
-    const pathname = decodeURIComponent(parsed.pathname || '').toLowerCase();
-    const base = pathname.split('/').pop() || '';
-    const dot = base.lastIndexOf('.');
-    if (dot === -1) return false;
-
-    const ext = base.slice(dot + 1);
-    return DOWNLOADABLE_EXTENSIONS.has(ext);
-  } catch {
-    return false;
-  }
+    const message = { type: 'turbodm-route-download', url, fileName };
+    if (/^(blob:|data:)/i.test(url)) {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      if (blob.size > 32 * 1024 * 1024) throw new Error('Files over 32 MiB must be saved by the browser.');
+      message.mimeType = blob.type;
+      message.base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader(); reader.onload = () => resolve(reader.result.split(',')[1]); reader.onerror = reject; reader.readAsDataURL(blob);
+      });
+    }
+    const result = await chrome.runtime.sendMessage(message);
+    if (!result?.ok) throw new Error(result?.disabled ? 'Browser capture is paused.' : result?.error || 'Open TurboDM and try again.');
+    showStatus('Added to TurboDM');
+    return true;
+  } catch (error) { showStatus(error.message); return false; }
 }
 
-function routeUrlViaBackground(url) {
-  if (isSkippableUrl(url)) return;
-  try {
-    chrome.runtime.sendMessage({ type: 'turbodm-route-download', url });
-  } catch {
-    sendToTurboDM(url);
-  }
-}
-
-document.addEventListener('click', (event) => {
-  if (event.defaultPrevented) return;
-  if (event.button !== 0) return;
-
-  const anchor = event.target && event.target.closest ? event.target.closest('a[href]') : null;
-  if (!anchor) return;
-  if (!isLikelyDirectDownloadLink(anchor)) return;
-
+// HTTP links keep their original click/request semantics, including chatbot POST
+// handlers and session-only endpoints. downloads.onCreated handles real downloads.
+// Explicit blob/data download anchors are imported while their page still owns them.
+let replaying = false;
+document.addEventListener('click', async event => {
+  if (replaying || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+  const anchor = event.target?.closest?.('a[href]');
+  if (!anchor?.hasAttribute('download') || !/^(blob:|data:)/i.test(anchor.href)) return;
   event.preventDefault();
-  event.stopPropagation();
-  routeUrlViaBackground(anchor.href);
+  const ok = await sendToTurboDM(anchor.href, anchor.download || 'download');
+  if (!ok) { replaying = true; try { anchor.click(); } finally { replaying = false; } }
 }, true);
-
-// ── Protocol launch + auto-retry ────────────────────────────
-// When TurboDM's local server is unreachable, trigger the turbodm:// protocol
-// in the CURRENT tab (via a hidden iframe — no new tab opened) and then
-// automatically retry sending the URL every 1.5 s for up to 15 s so the
-// download is captured the moment TurboDM finishes starting.
-
-let retryTimer = null; // Left for backwards compatibility safety
-
-function launchProtocolAndRetry(url) {
-  // Trigger protocol in the current tab via hidden iframe (no new tab)
-  // We no longer actively poll via fetch() from the content script because
-  // doing so from a public webpage triggers Chrome's "Private Network Access" security dialog.
-  // The protocol handler (turbodm://) will securely communicate the URL to the app via process.argv!
-  const iframe = document.createElement('iframe');
-  iframe.style.display = 'none';
-  iframe.src = 'turbodm://?url=' + encodeURIComponent(url);
-  document.body.appendChild(iframe);
-  setTimeout(() => iframe.remove(), 2000);
-}
-
-// ── Send to TurboDM ─────────────────────────────────────────
-
-function sendToTurboDM(url) {
-  if (isSkippableUrl(url)) return;
-  // All download routings are securely passed to the background script which 
-  // possesses the permissions to fetch localhost without triggering PNA warnings.
-  try {
-    chrome.runtime.sendMessage({ type: 'turbodm-route-download', url });
-  } catch (err) {
-    // Fallback if extension context is somehow invalidated
-    launchProtocolAndRetry(url);
-  }
-}
-
-// Listen for background script asking us to trigger protocol in current tab
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message && message.type === 'turbodm-launch-protocol' && message.url) {
-    launchProtocolAndRetry(message.url);
-    sendResponse({ ok: true });
-  }
+chrome.runtime.onMessage.addListener(message => {
+  if (message?.type === 'turbodm-status') showStatus(message.text);
 });
 
 // ── Video Overlay Scanner ───────────────────────────────────
@@ -160,7 +90,7 @@ function createOverlayButton(videoElement) {
     const preferPageUrl = ['youtube', 'twitter', 'x.com', 'tiktok', 'vimeo', 'twitch'].some(domain => host.includes(domain));
     const urlToSend = preferPageUrl
       ? window.location.href
-      : (videoElement.src || window.location.href);
+      : (videoElement.currentSrc || videoElement.src || window.location.href);
 
     sendToTurboDM(urlToSend);
   };
@@ -171,7 +101,7 @@ function createOverlayButton(videoElement) {
 
   const setVisible = (isVisible) => {
     btn.style.opacity = isVisible ? '1' : '0';
-    btn.style.pointerEvents = 'auto';
+    btn.style.pointerEvents = isVisible ? 'auto' : 'none';
   };
 
   const showButton = () => {

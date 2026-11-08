@@ -68,9 +68,11 @@ npm start
 
 ### Download workspace
 
-The redesigned desktop workspace includes light and dark themes, a live 30-second
-transfer chart, status and file-type filters, filename/source search, sorting,
+The Porcelain & Indigo desktop workspace includes light and dark themes, a compact
+30-second transfer chart shown during active downloads, status and file-type filters, filename/source search, sorting,
 and per-download pause, resume, retry, connection-mode and file actions.
+Flat transfer rows keep the main view quiet; the Details drawer contains source,
+connection and file controls, and file categories live in the File type menu.
 
 Keyboard shortcuts: **Ctrl/Cmd + N** adds a download, **Ctrl/Cmd + K** focuses
 search, **Ctrl/Cmd + ,** opens preferences, and **Escape** closes a dialog.
@@ -126,3 +128,26 @@ Third-party dependencies are subject to their own terms - see [THIRD_PARTY_NOTIC
 
 ---
 *Created with ❤️ by Abdul basit shahid*
+
+### Browser integration reliability (1.3)
+
+Reload the updated `browser-extension` folder in Chrome/Edge after updating the desktop
+app; both halves are needed. The toolbar popup shows connection status, capture control,
+and a link entry field using the desktop light/dark design.
+
+HTTP handoffs now wait for app acceptance and retain the Chrome download on rejection.
+Authenticated request headers, redirect handling and HEAD-rejected file metadata are
+supported. Explicit blob/data download anchors import generated files up to 32 MiB;
+POST responses, larger generated files and other browser-owned transfers retain the
+browser fallback. This does not guarantee capture from every chatbot or downloadable
+URL. Protected links may need to be captured again after restarting TurboDM.
+
+Run `npm run test:browser-integration` for bridge, authentication, redirect and extension
+handoff regression checks. See `build/EXTENSION_SETUP.md` for installation and limits.
+
+### Version 1.3.0 downloads
+
+The standalone [browser extension ZIP](releases/TurboDM-Browser-Extension-1.3.0.zip)
+is included in this repository. Extract it before using Chrome/Edge's Load unpacked.
+Tagged `v*` pushes run the Windows installer workflow and, after successful checks,
+publish the installer, extension ZIP and checksums on the matching GitHub release.

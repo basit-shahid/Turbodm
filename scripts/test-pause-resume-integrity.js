@@ -7,7 +7,9 @@ const DownloadEngine = require('../src/download-engine');
 
 const TEST_SIZE = 32 * 1024 * 1024; // 32 MB
 const STREAM_CHUNK_SIZE = 64 * 1024; // 64 KB per streamed packet
-const STREAM_DELAY_MS = 2;
+// Keep the local transfer alive beyond the engine's 200 ms progress interval,
+// so the test always exercises pause/resume even on fast CI hosts.
+const STREAM_DELAY_MS = 10;
 
 const TEST_BUFFER = Buffer.allocUnsafe(TEST_SIZE);
 for (let i = 0; i < TEST_SIZE; i++) {

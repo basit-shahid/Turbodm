@@ -1,35 +1,3 @@
-/* ── TurboDM Video Overlay Button ─────────────────────────── */
-.turbodm-video-overlay-btn {
-  position: absolute;
-  top: 15px;
-  right: 15px;
-  background-color: #ffffff;
-  color: #0ea5e9;
-  border: 1px solid rgba(14, 165, 233, 0.3);
-  border-radius: 6px;
-  padding: 6px 14px;
-  font-family: system-ui, -apple-system, sans-serif;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  z-index: 2147483647;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  opacity: 0;
-  transition: opacity 0.2s, background-color 0.2s;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  pointer-events: auto;
-}
-
-.turbodm-video-overlay-btn:hover {
-  background-color: #f8fafc;
-  border-color: #0284c7;
-  color: #0284c7;
-  opacity: 1 !important;
-}
-
-.turbodm-video-overlay-btn svg {
-  width: 14px;
-  height: 14px;
-}
+.turbodm-video-overlay-btn,#turbodm-status{font:13px/1.5 Inter,"Segoe UI",system-ui,sans-serif!important;background:#fff!important;color:#5654c9!important;border:1px solid #e7e7ef!important;border-radius:12px!important;box-shadow:0 8px 28px #15233424!important;padding:10px 14px!important;z-index:2147483647!important}
+.turbodm-video-overlay-btn{position:absolute;top:15px;right:15px;display:flex;align-items:center;gap:8px;cursor:pointer;opacity:0;transition:opacity .2s}.turbodm-video-overlay-btn svg{width:16px;height:16px}.turbodm-video-overlay-btn:focus-visible{opacity:1!important;outline:3px solid #7774dd66;pointer-events:auto!important}#turbodm-status{position:fixed!important;right:20px!important;bottom:20px!important;max-width:360px!important}
+@media(prefers-color-scheme:dark){.turbodm-video-overlay-btn,#turbodm-status{background:#20212e!important;color:#aaa7ff!important;border-color:#343648!important}}

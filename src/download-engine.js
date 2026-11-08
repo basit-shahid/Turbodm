@@ -19,7 +19,7 @@ class DownloadEngine extends EventEmitter {
     this.modePreference = options.modePreference || 'auto'; // auto, parallel, single
 
     this.id = options.id || Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-    this.headers = options.headers || {};
+    this.headers = Object.fromEntries(Object.entries(options.headers || {}).map(([key, value]) => [key.toLowerCase().replace(/(^|-)([a-z])/g, (_, prefix, letter) => prefix + letter.toUpperCase()), value]));
     // Extract filename from URL, properly decode %20 etc.
     let urlFileName = '';
     try {
@@ -81,7 +81,7 @@ class DownloadEngine extends EventEmitter {
     return this.httpAgent;
   }
 
-  _getDefaultHeaders(useBrowserUA = false) {
+  _getDefaultHeaders(useBrowserUA = false, requestUrl = this.url) {
     const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
     const customUA = this.headers && this.headers['User-Agent'];
     const userAgent = (useBrowserUA || customUA) ? (customUA || BROWSER_UA) : 'TurboDM/1.0';
@@ -99,14 +99,20 @@ class DownloadEngine extends EventEmitter {
       'User-Agent': userAgent,
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
       'Accept-Language': 'en-US,en;q=0.9',
-      'Accept-Encoding': 'gzip, deflate, br',
+      'Accept-Encoding': 'identity',
       'Connection': 'keep-alive',
     };
 
     if (origin) base['Origin'] = origin;
 
     // Custom headers from browser go last so they take full precedence
-    return { ...base, ...this.headers, 'User-Agent': userAgent };
+    const headers = { ...base, ...this.headers, 'User-Agent': userAgent, 'Accept-Encoding': 'identity' };
+    if (new URL(requestUrl).origin !== new URL(this.url).origin) {
+      delete headers.Cookie;
+      delete headers.Authorization;
+      delete headers.Origin;
+    }
+    return headers;
   }
 
   _destroyAgents() {
@@ -147,7 +153,7 @@ class DownloadEngine extends EventEmitter {
           port: parsedUrl.port,
           path: parsedUrl.pathname + parsedUrl.search,
           method: overrideMethod,
-          headers: this._getDefaultHeaders(),
+          headers: this._getDefaultHeaders(false, requestUrl),
           agent: this._getAgent(parsedUrl.protocol),
           timeout: this.rangeProbeTimeout,
         };
@@ -160,41 +166,15 @@ class DownloadEngine extends EventEmitter {
           if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
             const redirectUrl = new URL(res.headers.location, requestUrl).href;
             this.redirectedUrl = redirectUrl;
+            res.destroy();
             makeRequest(redirectUrl, redirectCount + 1, overrideMethod);
             return;
           }
 
-          if ([403, 405, 501].includes(res.statusCode) && overrideMethod === 'HEAD' && redirectCount === 0) {
+          if ([403, 405, 501].includes(res.statusCode) && overrideMethod === 'HEAD') {
             // HEAD is not allowed on this URL — try GET with a tiny range instead.
             res.destroy();
             makeRequest(requestUrl, redirectCount, 'GET');
-            return;
-          }
-
-          // 403 on GET with no cookies: upgrade to full browser headers (with cookies/UA) and retry once.
-          if (res.statusCode === 403 && overrideMethod === 'GET' && redirectCount === 0) {
-            res.destroy();
-            // Build a fresh options object with full browser headers so we do not mutate the closed request's options.
-            const retryOptions = {
-              hostname: parsedUrl.hostname,
-              port: parsedUrl.port,
-              path: parsedUrl.pathname + parsedUrl.search,
-              method: 'GET',
-              headers: { ...this._getDefaultHeaders(true), Range: 'bytes=0-0' },
-              agent: this._getAgent(parsedUrl.protocol),
-              timeout: this.rangeProbeTimeout,
-            };
-            const retryReq = client.request(retryOptions, (retryRes) => {
-              if (retryRes.statusCode >= 200 && retryRes.statusCode < 300) {
-                // Success — continue parsing with the response we have
-                req.emit('retry-success', retryRes);
-                return;
-              }
-              retryRes.destroy();
-              reject(new Error(`HTTP ${retryRes.statusCode}: Server denied access even with browser credentials`));
-            });
-            retryReq.on('error', (err) => reject(err));
-            retryReq.end();
             return;
           }
 
@@ -208,7 +188,8 @@ class DownloadEngine extends EventEmitter {
           const acceptRanges = res.headers['accept-ranges'];
           this.mimeType = res.headers['content-type'] || '';
 
-          this.fileSize = isNaN(contentLength) ? 0 : contentLength;
+          const totalRange = /bytes\s+\d+-\d+\/(\d+)/i.exec(res.headers['content-range'] || '');
+          this.fileSize = totalRange ? Number(totalRange[1]) : (isNaN(contentLength) ? 0 : contentLength);
           const declaredRangeSupport = acceptRanges === 'bytes' && this.fileSize > 0;
 
           // 1. Always prefer Content-Disposition header (server's explicit filename)
@@ -216,7 +197,8 @@ class DownloadEngine extends EventEmitter {
           if (disposition) {
             const match = disposition.match(/filename\*?=['"]?(?:UTF-8'')?([^;'"\n]*)/i);
             if (match) {
-              this.fileName = decodeURIComponent(match[1].replace(/['"]/g, '').trim());
+              try { this.fileName = decodeURIComponent(match[1].replace(/['"]/g, '').trim()); } catch { this.fileName = match[1].trim(); }
+              this.fileName = path.basename(this.fileName.replace(/[\\/]/g, '_'));
             }
           }
 
@@ -304,7 +286,7 @@ class DownloadEngine extends EventEmitter {
 
         const parsedUrl = new URL(rangeUrl);
         const client = parsedUrl.protocol === 'https:' ? https : http;
-        const rangeHeaders = this._getDefaultHeaders();
+        const rangeHeaders = this._getDefaultHeaders(false, rangeUrl);
         rangeHeaders['Range'] = 'bytes=0-0';
         const reqOptions = {
           hostname: parsedUrl.hostname,
@@ -320,6 +302,7 @@ class DownloadEngine extends EventEmitter {
           if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
             const redirectUrl = new URL(res.headers.location, rangeUrl).href;
             this.redirectedUrl = redirectUrl;
+            res.destroy();
             makeRequest(redirectUrl, redirectCount + 1);
             return;
           }
@@ -596,7 +579,7 @@ class DownloadEngine extends EventEmitter {
       const parsedUrl = new URL(downloadUrl);
       const client = parsedUrl.protocol === 'https:' ? https : http;
 
-      const headers = this._getDefaultHeaders(attempt > 0);
+      const headers = this._getDefaultHeaders(attempt > 0, downloadUrl);
       const expectedChunkSize = Number.isFinite(chunk.end) ? (chunk.end - chunk.start + 1) : Infinity;
       let requestedStartByte = chunk.start;
       let intentionallyStoppedAtLimit = false;
@@ -1110,7 +1093,8 @@ class DownloadEngine extends EventEmitter {
       modePreference: this.modePreference,
       connectionMode: this.connectionMode,
       transportNotice: this.transportNotice,
-      headers: this.headers,
+      // Browser session credentials remain in memory; re-capture protected links after restart.
+      headers: Object.fromEntries(Object.entries(this.headers).filter(([key]) => !/^(cookie|authorization)$/i.test(key))),
       chunks: this.chunks.map(c => ({
         index: c.index,
         start: c.start,

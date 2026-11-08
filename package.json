@@ -1,7 +1,7 @@
 {
   "name": "turbo-download-manager",
-  "version": "1.2.0",
-  "description": "TurboDM — Download Manager",
+  "version": "1.3.0",
+  "description": "TurboDM \u2014 Download Manager",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -12,7 +12,8 @@
     "test:integrity": "node scripts/test-large-chunk-integrity.js",
     "test:pause-resume-integrity": "node scripts/test-pause-resume-integrity.js",
     "prebuild": "node scripts/prepare-build.mjs",
-    "prerebuild": "node scripts/prepare-build.mjs"
+    "prerebuild": "node scripts/prepare-build.mjs",
+    "test:browser-integration": "node scripts/test-browser-integration.js"
   },
   "keywords": [
     "download",
