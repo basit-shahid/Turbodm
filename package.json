@@ -1,7 +1,7 @@
 {
   "name": "turbo-download-manager",
   "version": "1.3.1",
-  "description": "TurboDM \u2014 Download Manager",
+  "description": "Windows download manager with parallel transfers, a Porcelain & Indigo UI, and permission-based Chrome/Edge handoff",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
