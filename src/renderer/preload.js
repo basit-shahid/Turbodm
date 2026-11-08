@@ -1,6 +1,8 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('tdm', {
+  importBrowserFile: (id, options) => ipcRenderer.invoke('import-browser-file', id, options),
+  discardBrowserFile: (id) => ipcRenderer.invoke('discard-browser-file', id),
   // Download actions
   addDownload: (url, options) => ipcRenderer.invoke('add-download', url, options),
   pauseDownload: (id) => ipcRenderer.invoke('pause-download', id),

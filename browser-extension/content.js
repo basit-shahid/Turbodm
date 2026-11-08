@@ -6,9 +6,20 @@ function showStatus(text) {
   showStatus.timer = setTimeout(() => toast.remove(), 7000);
 }
 
+function launchTurboDM(requestId) {
+  // Synchronous navigation inside the user's click lets Chrome/Edge own the
+  // external-protocol permission prompt. Never embed session data in this URL.
+  window.location.assign('turbodm://download?request=' + requestId);
+}
+let captureEnabled = true;
+chrome.storage.local.get({ enabled: true }).then(v => { captureEnabled = v.enabled; });
+chrome.storage.onChanged.addListener(changes => { if (changes.enabled) captureEnabled = changes.enabled.newValue; });
 async function sendToTurboDM(url, fileName) {
+  if (!captureEnabled) { showStatus('Browser capture is paused.'); return false; }
   try {
-    const message = { type: 'turbodm-route-download', url, fileName };
+    const requestId = crypto.randomUUID();
+    launchTurboDM(requestId);
+    const message = { type: 'turbodm-route-download', requestId, url, fileName };
     if (/^(blob:|data:)/i.test(url)) {
       const response = await fetch(url);
       const blob = await response.blob();
@@ -20,22 +31,28 @@ async function sendToTurboDM(url, fileName) {
     }
     const result = await chrome.runtime.sendMessage(message);
     if (!result?.ok) throw new Error(result?.disabled ? 'Browser capture is paused.' : result?.error || 'Open TurboDM and try again.');
-    showStatus('Added to TurboDM');
+    showStatus('Ready in TurboDM. Choose Start download in the app.');
     return true;
   } catch (error) { showStatus(error.message); return false; }
 }
 
-// HTTP links keep their original click/request semantics, including chatbot POST
-// handlers and session-only endpoints. downloads.onCreated handles real downloads.
-// Explicit blob/data download anchors are imported while their page still owns them.
-let replaying = false;
-document.addEventListener('click', async event => {
-  if (replaying || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+// Capture explicit file clicks before Chrome creates a native download.
+function isDownloadLink(anchor) {
+  if (!anchor) return false;
+  if (anchor.hasAttribute('download')) return /^(https?:|blob:|data:)/i.test(anchor.href);
+  try {
+    const url = new URL(anchor.href);
+    return /^https?:$/.test(url.protocol) && (/\.(zip|rar|7z|tar|gz|exe|msi|dmg|deb|apk|pdf|docx?|xlsx?|pptx?|csv|txt|json|mp[34]|mkv|webm|wav|flac)(?:$)/i.test(url.pathname) || /\/download(?:\/|$)/i.test(url.pathname) || url.searchParams.has('download'));
+  } catch { return false; }
+}
+document.addEventListener('click', event => {
+  if (!event.isTrusted && !navigator.userActivation?.isActive) return;
+  if (!captureEnabled || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
   const anchor = event.target?.closest?.('a[href]');
-  if (!anchor?.hasAttribute('download') || !/^(blob:|data:)/i.test(anchor.href)) return;
+  if (!isDownloadLink(anchor)) return;
   event.preventDefault();
-  const ok = await sendToTurboDM(anchor.href, anchor.download || 'download');
-  if (!ok) { replaying = true; try { anchor.click(); } finally { replaying = false; } }
+  event.stopImmediatePropagation();
+  sendToTurboDM(anchor.href, anchor.download || undefined);
 }, true);
 chrome.runtime.onMessage.addListener(message => {
   if (message?.type === 'turbodm-status') showStatus(message.text);

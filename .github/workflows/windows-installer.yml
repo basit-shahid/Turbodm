@@ -59,6 +59,10 @@ jobs:
           if (!$installer -or $installer.Length -lt 10MB) { throw 'Installer missing or incomplete' }
           $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
           if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne "v$version") { throw 'Release tag and package version differ' }
+          $publishedName = "TurboDM.Setup.$version.exe"
+          Move-Item "$($installer.FullName).blockmap" "dist/$publishedName.blockmap"
+          Move-Item $installer.FullName "dist/$publishedName"
+          $installer = Get-Item "dist/$publishedName"
           $extension = "dist/TurboDM-Browser-Extension-$version.zip"
           Compress-Archive -Path browser-extension,build/EXTENSION_SETUP.md -DestinationPath $extension
           $files = @($installer.FullName, "$($installer.FullName).blockmap", $extension)
@@ -71,8 +75,8 @@ jobs:
         with:
           name: TurboDM-Windows-x64
           path: |
-            dist/TurboDM Setup *.exe
-            dist/TurboDM Setup *.exe.blockmap
+            dist/TurboDM*.exe
+            dist/TurboDM*.exe.blockmap
             dist/SHA256SUMS.txt
             dist/TurboDM-Browser-Extension-*.zip
           if-no-files-found: error
@@ -96,4 +100,4 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           assets=(dist/*.exe dist/*.exe.blockmap dist/TurboDM-Browser-Extension-*.zip dist/SHA256SUMS.txt)
-          gh release create "$RELEASE_TAG" "${assets[@]}" --verify-tag --title "TurboDM $RELEASE_TAG" --notes-file '.github/release-notes-v1.3.0.md' --repo "$GITHUB_REPOSITORY"
+          gh release create "$RELEASE_TAG" "${assets[@]}" --verify-tag --title "TurboDM $RELEASE_TAG" --notes-file ".github/release-notes-$RELEASE_TAG.md" --repo "$GITHUB_REPOSITORY"

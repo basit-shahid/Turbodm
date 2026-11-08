@@ -129,25 +129,31 @@ Third-party dependencies are subject to their own terms - see [THIRD_PARTY_NOTIC
 ---
 *Created with ❤️ by Abdul basit shahid*
 
-### Browser integration reliability (1.3)
+### Browser handoff (1.3.1)
 
-Reload the updated `browser-extension` folder in Chrome/Edge after updating the desktop
-app; both halves are needed. The toolbar popup shows connection status, capture control,
-and a link entry field using the desktop light/dark design.
+Update both the desktop app and extension. A direct file click stops the page's native
+navigation and asks the browser to open the registered `turbodm://` application.
+Approve **Open TurboDM**; the app opens its **New download** dialog with the link and
+session headers. Nothing is added to the queue until you choose **Start download**.
+Chrome/Edge owns the permission prompt and may skip it if you previously chose Always allow.
 
-HTTP handoffs now wait for app acceptance and retain the Chrome download on rejection.
-Authenticated request headers, redirect handling and HEAD-rejected file metadata are
-supported. Explicit blob/data download anchors import generated files up to 32 MiB;
-POST responses, larger generated files and other browser-owned transfers retain the
-browser fallback. This does not guarantee capture from every chatbot or downloadable
-URL. Protected links may need to be captured again after restarting TurboDM.
+For downloads created by page scripts, Chrome is paused and an extension handoff page
+offers **Open TurboDM** or **Save in browser instead**. The extension never silently
+resumes a download on timeout or denial. Transfers that Chrome finishes before its
+onCreated event can be paused cannot be rewound. POST-only requests require explicit
+browser continuation. Pause capture in the toolbar popup to use normal browser behavior.
 
-Run `npm run test:browser-integration` for bridge, authentication, redirect and extension
-handoff regression checks. See `build/EXTENSION_SETUP.md` for installation and limits.
+Explicit blob/data download anchors can stage generated files up to 32 MiB in memory;
+the Start Download dialog must still be confirmed before they are saved. Larger blobs,
+private APIs and other browser-owned requests cannot all be replayed outside their page.
 
-### Version 1.3.0 downloads
+Run `npm run test:browser-integration` for handoff regressions. Against a running isolated
+test app, set `TURBODM_TEST_USER_DATA` to its user-data directory and run
+`npm run test:browser-dialog` to exercise protocol approval, the dialog, and manual HTTP/blob starts.
+The browser's native permission prompt itself needs a real Chrome/Edge installation check.
 
-The standalone [browser extension ZIP](releases/TurboDM-Browser-Extension-1.3.0.zip)
+### Version 1.3.1 downloads
+
+The standalone [browser extension ZIP](releases/TurboDM-Browser-Extension-1.3.1.zip)
 is included in this repository. Extract it before using Chrome/Edge's Load unpacked.
-Tagged `v*` pushes run the Windows installer workflow and, after successful checks,
-publish the installer, extension ZIP and checksums on the matching GitHub release.
+Tagged `v*` pushes build and publish the matching Windows installer, extension and checksums.

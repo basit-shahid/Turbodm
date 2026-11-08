@@ -3,6 +3,7 @@ let downloads = [];
 let clipboardUrl = null;
 let clipboardHeaders = {};
 let addModalHeaders = {};
+let browserImportId = null;
 let toastTimeout = null;
 let currentFilter = "all";
 let searchQuery = "";
@@ -477,7 +478,10 @@ async function openFolder(filePath) {
 }
 
 // ===== ADD DOWNLOAD MODAL =====
-function showAddModal(url = "", headers = {}) {
+function showAddModal(url = "", headers = {}, browserFile = null) {
+  analysisRequest++;
+  browserImportId = browserFile?.id || null;
+  $inputUrl.readOnly = !!browserFile;
   openDialog($modalAdd);
   document.getElementById("add-error").hidden = true;
   lastAnalyzedInfo = null;
@@ -493,12 +497,26 @@ function showAddModal(url = "", headers = {}) {
   $fileInfo.style.display = "none";
   $inputUrl.focus();
 
-  if (url) {
+  if (browserFile) {
+    $inputUrl.value = "Browser-generated file";
+    $inputFilename.value = browserFile.fileName;
+    document.getElementById("info-filename").textContent = browserFile.fileName;
+    document.getElementById("info-filesize").textContent = formatBytes(browserFile.fileSize);
+    document.getElementById("info-resumable").textContent = "Ready to save";
+    document.getElementById("info-connections").textContent = "Browser import";
+    $fileInfo.style.display = "block";
+    document.getElementById("group-connections").style.display = "none";
+    document.getElementById("group-transfer-mode").style.display = "none";
+    document.getElementById("btn-analyze").disabled = true;
+  } else if (url) {
     analyzeUrl(url, undefined, addModalHeaders);
   }
 }
 
 function hideAddModal() {
+  if (browserImportId) window.tdm.discardBrowserFile(browserImportId);
+  browserImportId = null;
+  $inputUrl.readOnly = false;
   analysisRequest++;
   closeDialog($modalAdd);
   addModalHeaders = {};
@@ -583,7 +601,7 @@ async function analyzeUrl(url, formatId, headers = addModalHeaders) {
 async function startDownload() {
   if (document.getElementById("btn-start-download").disabled) return;
   const url = $inputUrl.value.trim();
-  if (!validateDownloadUrl(url)) return;
+  if (!browserImportId && !validateDownloadUrl(url)) return;
 
   const settings = await window.tdm.getSettings();
   const options = {
@@ -602,7 +620,9 @@ async function startDownload() {
   const button = document.getElementById("btn-start-download");
   button.disabled = true;
   try {
-    const result = await window.tdm.addDownload(url, options);
+    const result = browserImportId
+      ? await window.tdm.importBrowserFile(browserImportId, options)
+      : await window.tdm.addDownload(url, options);
     if (!result || result.error)
       throw new Error(
         result?.error || "Unable to start the download. Please try again.",
@@ -843,7 +863,12 @@ const unsubUpdate = window.tdm.onDownloadUpdate((state) => {
 const unsubClipboard = window.tdm.onClipboardUrl((data) => {
   let url = typeof data === "string" ? data : data.url;
   let headers = typeof data === "string" ? {} : data.headers || {};
-  showClipboardToast(url, headers);
+  if (data.showDialog) {
+    hideSettings();
+    hideAddModal();
+    showAddModal(url, headers, data.browserFile);
+    if (data.fileName) $inputFilename.value = data.fileName;
+  } else showClipboardToast(url, headers);
 });
 
 // When the extension auto-starts a download without showing the modal,

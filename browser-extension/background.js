@@ -24,49 +24,44 @@ chrome.runtime.onInstalled.addListener(() => {
     id: 'turbodm-download-link', title: 'Download with TurboDM', contexts: ['link', 'video', 'audio'],
   }));
 });
-chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (info.menuItemId !== 'turbodm-download-link') return;
-  const url = info.linkUrl || info.srcUrl;
-  const result = await route({ url }, tab);
-  if (!result.ok && tab?.id) chrome.tabs.sendMessage(tab.id, { type: 'turbodm-status', text: result.error }).catch(() => {});
+async function openHandoffPage(message, tab, downloadId) {
+  const requestId = crypto.randomUUID();
+  await chrome.storage.session.set({ [requestId]: { ...message, tabId: tab?.id, tabUrl: tab?.url, downloadId, createdAt: Date.now() } });
+  await chrome.tabs.create({ url: chrome.runtime.getURL('launch.html') + '?request=' + requestId });
+}
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === 'turbodm-download-link') openHandoffPage({ url: info.linkUrl || info.srcUrl }, tab);
 });
 
-async function request(path, payload) {
-  const response = await fetch(API + path, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload), signal: AbortSignal.timeout(25000),
-  });
-  const result = await response.json();
-  if (!response.ok || !result.success) throw new Error(result.error || 'TurboDM did not accept this download');
-  return result;
-}
-
 async function route(message, tab) {
-  if (!isHttp(message.url) && typeof message.base64 !== 'string') return { ok: false, error: 'This link belongs to the browser. Save it in the browser instead.' };
-  const key = message.requestId || message.url;
-  if (pending.has(key)) return pending.get(key);
+  if (!message.requestId || (!isHttp(message.url) && typeof message.base64 !== 'string')) return { ok: false, error: 'Choose a downloadable HTTP link or browser file.' };
+  if (pending.has(message.requestId)) return pending.get(message.requestId);
   const operation = (async () => {
-    try {
-      if (typeof message.base64 === 'string') {
-        await request('/import', { url: message.url, fileName: message.fileName, base64: message.base64, mimeType: message.mimeType });
-      } else {
-        const observed = captured.get(message.url);
-        const headers = observed && Date.now() - observed.time < 60000 ? { ...observed.headers } : {};
-        if (!Object.keys(headers).some(k => k.toLowerCase() === 'user-agent')) headers['User-Agent'] = navigator.userAgent;
-        if (tab?.url && !Object.keys(headers).some(k => k.toLowerCase() === 'referer')) headers.Referer = tab.url;
-        if (!Object.keys(headers).some(k => k.toLowerCase() === 'cookie')) {
-          const cookies = await chrome.cookies.getAll({ url: message.url });
-          if (cookies.length) headers.Cookie = cookies.map(c => `${c.name}=${c.value}`).join('; ');
-        }
-        await request('/download', { url: message.url, fileName: message.fileName, headers });
-      }
-      return { ok: true };
-    } catch (error) {
-      return { ok: false, error: 'TurboDM could not accept the file. The browser can still save it. ' + error.message };
+    const observed = captured.get(message.url);
+    const headers = observed && Date.now() - observed.time < 60000 ? { ...observed.headers } : {};
+    headers['User-Agent'] ||= navigator.userAgent;
+    if (tab?.url && !Object.keys(headers).some(k => k.toLowerCase() === 'referer')) headers.Referer = tab.url;
+    if (isHttp(message.url) && !Object.keys(headers).some(k => k.toLowerCase() === 'cookie')) {
+      const cookies = await chrome.cookies.getAll({ url: message.url });
+      if (cookies.length) headers.Cookie = cookies.map(c => `${c.name}=${c.value}`).join('; ');
     }
+    const payload = { requestId: message.requestId, url: message.url, fileName: message.fileName, headers, base64: message.base64, mimeType: message.mimeType };
+    const deadline = Date.now() + 30000;
+    while (Date.now() < deadline) {
+      try {
+        const response = await fetch(API + '/handoff', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: AbortSignal.timeout(2500) });
+        if (response.ok) { const result = await response.json(); if (result.success) return { ok: true }; }
+        else if (response.status !== 409) {
+          const result = await response.json();
+          return { ok: false, error: result.error || 'Update both TurboDM and its extension.' };
+        }
+      } catch { /* The app may still be starting after protocol approval. */ }
+      await new Promise(resolve => setTimeout(resolve, 700));
+    }
+    return { ok: false, error: 'TurboDM did not open. Allow the browser’s Open TurboDM prompt, then try again. No TurboDM transfer was started.' };
   })();
-  pending.set(key, operation);
-  try { return await operation; } finally { pending.delete(key); }
+  pending.set(message.requestId, operation);
+  try { return await operation; } finally { pending.delete(message.requestId); }
 }
 
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
@@ -74,32 +69,36 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     fetch(API + '/status', { signal: AbortSignal.timeout(2000) }).then(r => r.json()).then(reply).catch(() => reply({ online: false }));
     return true;
   }
+  if (message?.type === 'turbodm-pending') {
+    chrome.storage.session.get(message.requestId).then(result => reply(result[message.requestId] || null)); return true;
+  }
+  if (message?.type === 'turbodm-native-save') {
+    (async () => {
+      if (message.downloadId != null) await chrome.downloads.resume(message.downloadId);
+      else await chrome.downloads.download({ url: message.url, filename: message.fileName || undefined });
+      reply({ ok: true });
+    })().catch(error => reply({ ok: false, error: error.message }));
+    return true;
+  }
   if (message?.type !== 'turbodm-route-download') return;
   if (!enabled) { reply({ ok: false, disabled: true }); return; }
-  // Only extension pages/content scripts can submit browser data; pages cannot message this worker directly.
-  route(message, sender.tab).then(reply);
+  route(message, sender.tab || { id: message.tabId, url: message.tabUrl }).then(async result => {
+    if (result.ok && message.downloadId != null) await chrome.downloads.cancel(message.downloadId).catch(() => {});
+    if (result.ok) await chrome.storage.session.remove(message.requestId);
+    reply(result);
+  }).catch(error => reply({ ok: false, error: error.message }));
   return true;
 });
 
 chrome.downloads.onCreated.addListener(async item => {
   const url = item.finalUrl || item.url;
   if (!enabled || item.byExtensionId || !isHttp(url)) return;
-  const original = captured.get(url);
-  if (original?.method && original.method !== 'GET') return;
-  // Pause first, retain the browser item, and cancel only after the app acknowledges acceptance.
-  // Blob/data/POST-only downloads remain in Chrome, which owns their request context.
-  let paused = false;
   try {
+    // No automatic resume or local-API auto-start. Script-generated downloads
+    // require a fresh user click on the extension handoff page.
     await chrome.downloads.pause(item.id);
-    paused = true;
     const observed = captured.get(url);
-    let tab = null;
-    if (observed) tab = await chrome.tabs.get(observed.tabId).catch(() => null);
-    if (!tab && item.referrer) tab = { url: item.referrer };
-    const result = await route({ url, fileName: item.filename?.split(/[\\/]/).pop() }, tab);
-    if (result.ok) await chrome.downloads.cancel(item.id);
-    else await chrome.downloads.resume(item.id);
-  } catch {
-    if (paused) await chrome.downloads.resume(item.id).catch(() => {});
-  }
+    const tab = observed ? await chrome.tabs.get(observed.tabId).catch(() => null) : { url: item.referrer };
+    await openHandoffPage({ url, fileName: item.filename?.split(/[\\/]/).pop(), browserOnly: observed?.method && observed.method !== 'GET' }, tab, item.id);
+  } catch { /* A transfer already completed by Chrome cannot be rewound. */ }
 });

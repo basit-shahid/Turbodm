@@ -10,11 +10,14 @@ $('enabled').onchange = () => chrome.storage.local.set({ enabled: $('enabled').c
 $('theme').onclick = () => { const theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; document.documentElement.dataset.theme = theme; chrome.storage.local.set({ theme }); };
 $('send').onsubmit = async event => {
   event.preventDefault();
+  if (!$('enabled').checked) { $('feedback').textContent = 'Enable capture to send downloads.'; return; }
+  const requestId = crypto.randomUUID();
+  window.location.assign('turbodm://download?request=' + requestId);
   const button = event.submitter; button.disabled = true;
   $('feedback').textContent = 'Sending…';
   try {
-    const result = await chrome.runtime.sendMessage({ type: 'turbodm-route-download', url: $('url').value });
-    $('feedback').textContent = result.ok ? 'Added to TurboDM' : result.disabled ? 'Enable capture to send downloads.' : result.error;
+    const result = await chrome.runtime.sendMessage({ type: 'turbodm-route-download', requestId, url: $('url').value });
+    $('feedback').textContent = result.ok ? 'Review the Start Download dialog in TurboDM' : result.disabled ? 'Enable capture to send downloads.' : result.error;
   } catch { $('feedback').textContent = 'Reload the extension and try again.'; }
   finally { button.disabled = false; }
 };

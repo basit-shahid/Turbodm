@@ -9,6 +9,13 @@ let downloadManager;
 let clipboardWatcher;
 let lastClipboardText = '';
 let pendingProtocolUrls = [];
+let rendererReady = false;
+const browserHandoffs = new (require('./src/browser-handoffs').BrowserHandoffs)();
+function showBrowserDialog(payload) {
+  if (rendererReady && mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('clipboard-url', payload);
+  else pendingProtocolUrls.push(payload);
+  forceFocusWindow();
+}
 
 function forceFocusWindow() {
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -23,19 +30,12 @@ function forceFocusWindow() {
 function handleProtocolUrl(url) {
   try {
     const parsed = new URL(url);
-    if (parsed.protocol === 'turbodm:') {
-      const targetUrl = parsed.searchParams.get('url');
-      if (targetUrl) {
-        if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
-          mainWindow.webContents.send('clipboard-url', { url: targetUrl, headers: {} });
-          forceFocusWindow();
-        } else {
-          // Window not ready yet — queue for later
-          pendingProtocolUrls.push(targetUrl);
-        }
-      }
-    }
-  } catch (e) {}
+    if (parsed.protocol !== 'turbodm:') return;
+    const request = parsed.searchParams.get('request');
+    if (request && browserHandoffs.approve(request)) { forceFocusWindow(); return; }
+    const targetUrl = parsed.searchParams.get('url');
+    if (targetUrl && /^https?:\/\//i.test(targetUrl)) showBrowserDialog({ url: targetUrl, headers: {}, showDialog: true });
+  } catch {}
 }
 
 // Downloadable URL patterns
@@ -65,6 +65,7 @@ function isDownloadableUrl(text) {
 }
 
 function createWindow() {
+  rendererReady = false;
   mainWindow = new BrowserWindow({
     width: 1180,
     height: 800,
@@ -85,12 +86,11 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, 'src', 'renderer', 'index.html'));
 
   mainWindow.once('ready-to-show', () => {
+    rendererReady = true;
     mainWindow.show();
     // Flush any protocol URLs that arrived before the window was ready
     if (pendingProtocolUrls.length > 0) {
-      pendingProtocolUrls.forEach((url) => {
-        mainWindow.webContents.send('clipboard-url', { url: url, headers: {} });
-      });
+      pendingProtocolUrls.forEach(payload => mainWindow.webContents.send('clipboard-url', payload));
       pendingProtocolUrls = [];
       forceFocusWindow();
     }
@@ -160,6 +160,14 @@ function startClipboardWatcher() {
 }
 
 function setupIPC() {
+  ipcMain.handle('import-browser-file', async (_event, id, options = {}) => {
+    const staged = browserHandoffs.getImport(id);
+    if (!staged) return { error: 'This browser file expired. Capture it again from the browser.' };
+    const result = await downloadManager.importBrowserFile(staged.buffer, { ...staged, fileName: options.fileName || staged.fileName });
+    browserHandoffs.discard(id);
+    return result;
+  });
+  ipcMain.handle('discard-browser-file', (_event, id) => browserHandoffs.discard(id));
   ipcMain.handle('add-download', async (_event, url, options = {}) => {
     const settings = downloadManager.getSettings();
     const downloadDir = options.downloadDir || settings.downloadDir;
@@ -306,12 +314,7 @@ if (!gotTheLock) {
 }
 
 function createLocalServer() {
-  const server = require('./src/browser-bridge').createBrowserBridge(downloadManager, result => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('download-update', result);
-      mainWindow.webContents.send('extension-download-started', { url: result.url, fileName: result.fileName });
-    }
-  });
+  const server = require('./src/browser-bridge').createBrowserBridge(downloadManager, showBrowserDialog, browserHandoffs);
 
   server.on('error', (err) => {
     console.error('Local server failed to start:', err);
